@@ -1,0 +1,131 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Hax Emu 0.0.1</title>
+		<style type="text/css">
+			body {
+			  padding: 50px;
+			  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+			}
+
+			a {
+			  color: #00B7FF;
+			}
+
+			#game-window {
+				border:2px solid #ccc;
+				position:absolute;
+				left:50%;
+				margin-left:-400px;
+				top:50%;
+				margin-top:-250px;
+			}
+				#game-canvas {
+					width:800px;
+					height:500px;
+					background:rgb(20,180,60);
+				}
+		</style>
+	</head>
+	<body>
+		<div id="game-window">
+			<div id="game-scoreboard">Scoreboard</div>
+			<svg id="game-canvas" xmlns="http://www.w3.org/2000/svg">
+				<defs>
+					<style type="text/css"><![CDATA[
+						.player {
+							stroke: #000;
+							stroke-width: 4;
+							fill: #f00;
+						}
+					]]></style>
+				</defs>
+			</svg>
+			<div id="ping-display"><b>Ping (ms): </b><span id="ping">connecting...</span></div>
+		</div>
+		<!--<script src="http://code.jquery.com/jquery-latest.min.js"></script>-->
+		<script src="./node_modules/jquery/dist/jquery.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			jQuery(function($) {
+				var socket = io.connect();
+				var canvas = document.getElementById('game-canvas');
+				var player;
+				// var context = canvas.getContext('2d');
+				function makeSVG(tag, attrs) {
+		            var el= document.createElementNS('http://www.w3.org/2000/svg', tag);
+		            for (var k in attrs)
+		                el.setAttribute(k, attrs[k]);
+		            return el;
+		        }
+
+		        setInterval(function () {
+		        	socket.emit('ping', Date.now());
+		        }, 1000);
+		        
+		        socket.on('pong', function (data) {
+		        	$('#ping').text(Date.now() - data);
+		        });
+
+				socket.on('addplayer', function (data) {
+					var centerX = data.xPos;
+					var centerY = data.yPos;
+					var radius = 15;
+					player = makeSVG('circle', {cx: centerX, cy: centerY, r: radius, id: data.id, class: 'player'});
+					canvas.appendChild(player);
+				});
+
+				socket.on('delplayer', function (data) {
+					document.getElementById('game-canvas').getElementById(data.id).remove();
+				});
+
+				var keys = {87: false, 65:false, 83: false, 68: false};
+
+				$(document).keydown(function (e) {
+					//console.log(e.which + " pressed.");
+					//119 up, 97 left, 115 down, 100 right
+					// switch(e.which) {
+					// 	case 87:
+					// 		socket.emit('move', {dir: 'up'});
+					// 		break;
+					// 	case 65:
+					// 		socket.emit('move', {dir: 'left'});
+					// 		break;
+					// 	case 83:
+					// 		socket.emit('move', {dir: 'down'});
+					// 		break;
+					// 	case 68:
+					// 		socket.emit('move', {dir: 'right'});
+					// 		break;
+					// }
+					keys[e.which] = true;
+					//socket.emit('updatemovement', keys);
+					//console.log(keys);
+				});
+
+				$(document).keyup(function (e) {
+					keys[e.which] = false;
+					if (e.which != 87 && e.which != 65 && e.which != 83 && e.which != 68)
+						delete keys[e.which];
+					//socket.emit('updatemovement', keys);
+				});
+
+				var tick = function() {
+					if (keys[87] || keys[65] || keys[83] || keys[68]) {
+						socket.emit('updatemovement', keys);
+					}
+
+					setTimeout(tick, 10);
+				}
+
+				tick();
+
+				socket.on('moveclient', function (data) {
+					console.log(data.id);
+					document.getElementById('game-canvas').getElementById(data.newp.id).setAttribute('cx', data.newp.xPos);
+					document.getElementById('game-canvas').getElementById(data.newp.id).setAttribute('cy', data.newp.yPos);
+				})
+			});
+		</script>
+	</body>
+</html>
